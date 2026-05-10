@@ -10,12 +10,22 @@
         body { margin: 0; font-family: sans-serif; background: #121212; color: #e0e0e0; overflow: hidden; }
         #viewer { width: 100vw; height: 100vh; }
         
+        /* Màn hình chờ chọn truyện */
+        #start-screen {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #121212; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 300;
+        }
+        #start-screen h2 { margin-bottom: 20px; }
+        #start-screen input[type="file"] { display: none; }
+        .btn-large { padding: 15px 30px; font-size: 18px; background: #444; color: white; border: 1px solid #666; border-radius: 8px; cursor: pointer; }
+
         /* Nút Setting góc trên phải */
         #settings-btn {
-            position: absolute; top: 15px; right: 15px; z-index: 100;
+            position: absolute; top: 15px; right: 15px; z-index: 100; display: none;
             background: rgba(0,0,0,0.5); border: 1px solid #444; color: white;
             border-radius: 50%; width: 40px; height: 40px; font-size: 20px;
-            display: flex; align-items: center; justify-content: center; cursor: pointer;
+            align-items: center; justify-content: center; cursor: pointer;
         }
 
         /* Bảng Setting */
@@ -23,8 +33,9 @@
             display: none; position: absolute; top: 60px; right: 15px; z-index: 100;
             background: #222; padding: 15px; border-radius: 8px; border: 1px solid #444;
         }
-        .setting-row { margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px;}
-        .setting-row button { background: #444; color: white; border: none; padding: 5px 15px; border-radius: 4px;}
+        .setting-row { margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; gap: 15px;}
+        .setting-row button { background: #444; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer;}
+        #change-book-btn { background: #d9534f; width: 100%; margin-top: 10px; padding: 10px; font-weight: bold; }
 
         /* Bảng chọn Chap (TOC) */
         #toc-modal {
@@ -38,14 +49,21 @@
         #toc-list li:active { background: #333; }
         
         #close-toc {
-            position: absolute; top: 10px; right: 15px; background: none; border: none; color: white; font-size: 20px;
+            position: absolute; top: 10px; right: 15px; background: none; border: none; color: white; font-size: 20px; cursor: pointer;
         }
     </style>
 </head>
 <body>
 
-    <div id="settings-btn">⚙️</div>
+    <!-- Màn hình chọn file -->
+    <div id="start-screen">
+        <h2>Web Đọc Truyện Của Lộc</h2>
+        <label for="book-upload" class="btn-large">Mở file EPUB</label>
+        <input type="file" id="book-upload" accept=".epub">
+    </div>
 
+    <!-- Nút Setting và Bảng Setting -->
+    <div id="settings-btn">⚙️</div>
     <div id="settings-panel">
         <div class="setting-row">
             <span>Cỡ chữ</span>
@@ -61,8 +79,10 @@
                 <button id="align-justify">Đều</button>
             </div>
         </div>
+        <button id="change-book-btn">Chọn truyện khác</button>
     </div>
 
+    <!-- Bảng Mục lục -->
     <div id="toc-modal">
         <button id="close-toc">✖</button>
         <h3>Danh sách Chương</h3>
@@ -72,19 +92,62 @@
     <div id="viewer"></div>
 
     <script>
-        // 1. CHỈNH ĐƯỜNG DẪN FILE EPUB CỦA ÔNG VÀO ĐÂY
-        var book = ePub("books/truyen.epub"); 
-        
-        var rendition = book.renderTo("viewer", {
-            width: "100%", height: "100%", flow: "paginated", manager: "default"
+        let book = null;
+        let rendition = null;
+        let currentFontSize = 100;
+
+        // Xử lý khi ông chọn file từ điện thoại/máy tính
+        document.getElementById('book-upload').addEventListener('change', function(e) {
+            let file = e.target.files[0];
+            if (!file) return;
+
+            let reader = new FileReader();
+            reader.onload = function(event) {
+                let bookData = event.target.result;
+                loadBook(bookData);
+            };
+            reader.readAsArrayBuffer(file);
         });
 
-        // Đăng ký theme mặc định cho font và căn lề
-        let currentFontSize = 100;
-        rendition.themes.default({
-            "p": { "font-size": currentFontSize + "%", "text-align": "left", "line-height": "1.5" }
-        });
-        rendition.display();
+        function loadBook(bookData) {
+            // Ẩn màn hình chọn truyện, hiện nút setting
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('settings-btn').style.display = 'flex';
+
+            // Xóa truyện cũ nếu đang mở truyện khác
+            if (book) { book.destroy(); }
+            document.getElementById('viewer').innerHTML = '';
+
+            book = ePub();
+            book.open(bookData, "binary");
+            
+            rendition = book.renderTo("viewer", {
+                width: "100%", height: "100%", flow: "paginated", manager: "default"
+            });
+
+            rendition.themes.default({
+                "p": { "font-size": currentFontSize + "%", "text-align": "left", "line-height": "1.5" }
+            });
+            rendition.display();
+
+            // Load mục lục
+            book.loaded.navigation.then(function(toc){
+                let list = document.getElementById("toc-list");
+                list.innerHTML = ''; // Xóa list cũ
+                toc.forEach(function(chapter) {
+                    let li = document.createElement("li");
+                    li.textContent = chapter.label;
+                    li.onclick = () => {
+                        rendition.display(chapter.href);
+                        document.getElementById('toc-modal').style.display = 'none';
+                    };
+                    list.appendChild(li);
+                });
+            });
+
+            // Gắn sự kiện vuốt và chạm
+            setupTouchEvents();
+        }
 
         // CÁC CHỨC NĂNG SETTING
         document.getElementById('settings-btn').onclick = function() {
@@ -96,58 +159,52 @@
         document.getElementById('font-decrease').onclick = () => { currentFontSize -= 10; rendition.themes.fontSize(currentFontSize + "%"); };
         document.getElementById('align-left').onclick = () => { rendition.themes.default({"p": {"text-align": "left"}}); rendition.display(rendition.location.start.cfi); };
         document.getElementById('align-justify').onclick = () => { rendition.themes.default({"p": {"text-align": "justify"}}); rendition.display(rendition.location.start.cfi); };
+        
+        // Đổi truyện khác
+        document.getElementById('change-book-btn').onclick = () => {
+            document.getElementById('settings-panel').style.display = 'none';
+            document.getElementById('settings-btn').style.display = 'none';
+            document.getElementById('start-screen').style.display = 'flex';
+            document.getElementById('viewer').innerHTML = '';
+        };
 
-        // XỬ LÝ CHẠM VÀ VUỐT TRONG KHUNG ĐỌC
-        let touchStartX = 0;
-        let touchEndX = 0;
-        let lastTap = 0;
+        // XỬ LÝ CHẠM VÀ VUỐT
+        function setupTouchEvents() {
+            let touchStartX = 0;
+            let touchEndX = 0;
+            let lastTap = 0;
 
-        rendition.on("touchstart", event => {
-            touchStartX = event.changedTouches[0].screenX;
-        });
-
-        rendition.on("touchend", event => {
-            touchEndX = event.changedTouches[0].screenX;
-            let currentTime = new Date().getTime();
-            let tapLength = currentTime - lastTap;
-
-            // Xử lý chạm 2 phát (Double tap) hiện danh sách Chap
-            if (tapLength < 300 && tapLength > 0) {
-                document.getElementById('toc-modal').style.display = 'block';
-                document.getElementById('settings-panel').style.display = 'none';
-            } else {
-                // Xử lý vuốt sang trang
-                if (touchStartX - touchEndX > 50) {
-                    rendition.next(); // Vuốt sang trái -> Trang tiếp
-                } else if (touchEndX - touchStartX > 50) {
-                    rendition.prev(); // Vuốt sang phải -> Trang trước
-                } else {
-                    // Nếu chạm 1 phát bình thường thì ẩn cái bảng setting đi (nếu đang mở)
-                    document.getElementById('settings-panel').style.display = 'none';
-                }
-            }
-            lastTap = currentTime;
-        });
-
-        // LẤY DANH SÁCH CHƯƠNG (MỤC LỤC)
-        book.loaded.navigation.then(function(toc){
-            let list = document.getElementById("toc-list");
-            toc.forEach(function(chapter) {
-                let li = document.createElement("li");
-                li.textContent = chapter.label;
-                li.onclick = () => {
-                    rendition.display(chapter.href);
-                    document.getElementById('toc-modal').style.display = 'none';
-                };
-                list.appendChild(li);
+            rendition.on("touchstart", event => {
+                touchStartX = event.changedTouches[0].screenX;
             });
-        });
+
+            rendition.on("touchend", event => {
+                touchEndX = event.changedTouches[0].screenX;
+                let currentTime = new Date().getTime();
+                let tapLength = currentTime - lastTap;
+
+                if (tapLength < 300 && tapLength > 0) {
+                    // Chạm đúp -> Hiện mục lục
+                    document.getElementById('toc-modal').style.display = 'block';
+                    document.getElementById('settings-panel').style.display = 'none';
+                } else {
+                    // Vuốt sang trái/phải
+                    if (touchStartX - touchEndX > 50) {
+                        rendition.next();
+                    } else if (touchEndX - touchStartX > 50) {
+                        rendition.prev();
+                    } else {
+                        document.getElementById('settings-panel').style.display = 'none';
+                    }
+                }
+                lastTap = currentTime;
+            });
+        }
 
         // Tắt bảng mục lục
         document.getElementById('close-toc').onclick = function() {
             document.getElementById('toc-modal').style.display = 'none';
         };
-
     </script>
 </body>
 </html>
