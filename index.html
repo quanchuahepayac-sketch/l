@@ -3,43 +3,29 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>Đọc Truyện</title>
+    <title>Quỷ Bí Chi Chủ</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
     <style>
-        /* Bỏ background ở đây, sẽ điều khiển bằng JS */
         body { margin: 0; font-family: sans-serif; overflow: hidden; transition: background 0.3s; }
         #viewer { width: 100vw; height: 100vh; }
         
-        /* Màn hình chờ */
-        #start-screen {
-            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: #121212; color: white; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; z-index: 300;
-        }
-        #start-screen h2 { margin-bottom: 20px; }
-        #start-screen input[type="file"] { display: none; }
-        .btn-large { padding: 15px 30px; font-size: 18px; background: #444; color: white; border: 1px solid #666; border-radius: 8px; cursor: pointer; }
-
-        /* Nút Mục lục (TOC) ở giữa trên cùng */
         #toc-btn {
             position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.7); color: white;
             padding: 8px 15px; border-radius: 6px; font-size: 14px;
             z-index: 100; cursor: pointer; border: 1px solid #555;
-            display: none; align-items: center; justify-content: center;
+            display: flex; align-items: center; justify-content: center;
             max-width: 60vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
 
-        /* Nút Setting góc phải */
         #settings-btn {
-            position: absolute; top: 10px; right: 15px; z-index: 100; display: none;
+            position: absolute; top: 10px; right: 15px; z-index: 100; display: flex;
             background: rgba(0,0,0,0.7); border: 1px solid #555; color: white;
             border-radius: 50%; width: 35px; height: 35px; font-size: 18px;
             align-items: center; justify-content: center; cursor: pointer;
         }
 
-        /* Bảng Setting */
         #settings-panel {
             display: none; position: absolute; top: 55px; right: 15px; z-index: 100;
             background: #222; color: white; padding: 15px; border-radius: 8px; border: 1px solid #444; width: 220px;
@@ -47,16 +33,12 @@
         .setting-row { margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;}
         .setting-row button { background: #444; color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer;}
         
-        /* Cục chọn màu nền */
         .color-options { display: flex; gap: 10px; }
         .color-btn { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #666; cursor: pointer; }
         #bg-light { background: #ffffff; }
         #bg-dark { background: #121212; }
         #bg-sepia { background: #f4ecd8; }
 
-        #change-book-btn { background: #d9534f; width: 100%; margin-top: 5px; padding: 10px; font-weight: bold; border: none; color: white; border-radius: 4px; cursor: pointer;}
-
-        /* Bảng chọn Chap */
         #toc-modal {
             display: none; position: absolute; top: 10%; left: 10%; width: 80%; height: 80%;
             background: #1a1a1a; color: white; z-index: 200; border-radius: 8px; border: 1px solid #555;
@@ -71,17 +53,9 @@
 </head>
 <body>
 
-    <div id="start-screen">
-        <h2>Web Đọc Truyện</h2>
-        <label for="book-upload" class="btn-large">Mở file EPUB</label>
-        <input type="file" id="book-upload" accept=".epub">
-    </div>
-
-    <!-- Nút Mục lục giữa màn hình -->
     <div id="toc-btn">Mục lục ▼</div>
-
-    <!-- Setting -->
     <div id="settings-btn">⚙️</div>
+    
     <div id="settings-panel">
         <div class="setting-row">
             <span>Cỡ chữ</span>
@@ -105,7 +79,6 @@
                 <button id="align-justify">Đều</button>
             </div>
         </div>
-        <button id="change-book-btn">Đổi truyện khác</button>
     </div>
 
     <div id="toc-modal">
@@ -117,77 +90,47 @@
     <div id="viewer"></div>
 
     <script>
-        let book = null;
-        let rendition = null;
         let currentFontSize = 100;
-
-        document.getElementById('book-upload').addEventListener('change', function(e) {
-            let file = e.target.files[0];
-            if (!file) return;
-            let reader = new FileReader();
-            reader.onload = function(event) {
-                loadBook(event.target.result);
-            };
-            reader.readAsArrayBuffer(file);
+        
+        // Gọi thẳng file truyện
+        let book = ePub("books/quybichichu.epub"); 
+        
+        let rendition = book.renderTo("viewer", {
+            width: "100%", height: "100%", flow: "paginated", manager: "default"
         });
 
-        function loadBook(bookData) {
-            document.getElementById('start-screen').style.display = 'none';
-            document.getElementById('settings-btn').style.display = 'flex';
-            document.getElementById('toc-btn').style.display = 'flex';
+        rendition.themes.register("light", { "body": { "background": "#ffffff", "color": "#000000" }});
+        rendition.themes.register("sepia", { "body": { "background": "#f4ecd8", "color": "#5b4636" }});
+        rendition.themes.register("dark", { "body": { "background": "#121212", "color": "#e0e0e0" }});
 
-            if (book) { book.destroy(); }
-            document.getElementById('viewer').innerHTML = '';
+        rendition.themes.default({
+            "p": { "font-size": currentFontSize + "%", "text-align": "left", "line-height": "1.5" }
+        });
 
-            book = ePub();
-            book.open(bookData, "binary");
-            
-            rendition = book.renderTo("viewer", {
-                width: "100%", height: "100%", flow: "paginated", manager: "default"
+        applyTheme('dark');
+        rendition.display();
+
+        book.loaded.navigation.then(function(toc){
+            let list = document.getElementById("toc-list");
+            list.innerHTML = ''; 
+            toc.forEach(function(chapter) {
+                let li = document.createElement("li");
+                li.textContent = chapter.label;
+                li.onclick = () => {
+                    rendition.display(chapter.href);
+                    document.getElementById('toc-modal').style.display = 'none';
+                };
+                list.appendChild(li);
             });
+        });
 
-            // Đăng ký 3 cái theme màu sắc
-            rendition.themes.register("light", { "body": { "background": "#ffffff", "color": "#000000" }});
-            rendition.themes.register("sepia", { "body": { "background": "#f4ecd8", "color": "#5b4636" }});
-            rendition.themes.register("dark", { "body": { "background": "#121212", "color": "#e0e0e0" }});
+        rendition.on('relocated', function(location) {
+            let navItem = book.navigation.get(location.start.href);
+            let btnText = navItem ? navItem.label : 'Mục lục';
+            if(btnText.length > 25) btnText = btnText.substring(0, 25) + '...';
+            document.getElementById('toc-btn').innerHTML = btnText + ' ▼';
+        });
 
-            // Cài đặt font và lề mặc định
-            rendition.themes.default({
-                "p": { "font-size": currentFontSize + "%", "text-align": "left", "line-height": "1.5" }
-            });
-
-            // Set mặc định lúc mới mở là nền tối
-            applyTheme('dark');
-            rendition.display();
-
-            // Load mục lục vào modal
-            book.loaded.navigation.then(function(toc){
-                let list = document.getElementById("toc-list");
-                list.innerHTML = ''; 
-                toc.forEach(function(chapter) {
-                    let li = document.createElement("li");
-                    li.textContent = chapter.label;
-                    li.onclick = () => {
-                        rendition.display(chapter.href);
-                        document.getElementById('toc-modal').style.display = 'none';
-                    };
-                    list.appendChild(li);
-                });
-            });
-
-            // Cập nhật tên chương lên nút TOC mỗi khi lật trang
-            rendition.on('relocated', function(location) {
-                let navItem = book.navigation.get(location.start.href);
-                let btnText = navItem ? navItem.label : 'Mục lục';
-                // Nếu tên chương dài quá thì cắt bớt cho đỡ tràn màn hình
-                if(btnText.length > 25) btnText = btnText.substring(0, 25) + '...';
-                document.getElementById('toc-btn').innerHTML = btnText + ' ▼';
-            });
-
-            setupTouchEvents();
-        }
-
-        // HÀM ĐỔI THEME
         function applyTheme(themeName) {
             rendition.themes.select(themeName);
             if (themeName === 'light') document.body.style.backgroundColor = "#ffffff";
@@ -195,7 +138,6 @@
             if (themeName === 'dark') document.body.style.backgroundColor = "#121212";
         }
 
-        // BẮT SỰ KIỆN NÚT
         document.getElementById('bg-light').onclick = () => applyTheme('light');
         document.getElementById('bg-sepia').onclick = () => applyTheme('sepia');
         document.getElementById('bg-dark').onclick = () => applyTheme('dark');
@@ -205,7 +147,6 @@
             panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
         };
 
-        // Bấm nút TOC mở mục lục
         document.getElementById('toc-btn').onclick = function() {
             document.getElementById('toc-modal').style.display = 'block';
             document.getElementById('settings-panel').style.display = 'none';
@@ -215,41 +156,29 @@
         document.getElementById('font-decrease').onclick = () => { currentFontSize -= 10; rendition.themes.fontSize(currentFontSize + "%"); };
         document.getElementById('align-left').onclick = () => { rendition.themes.default({"p": {"text-align": "left"}}); rendition.display(rendition.location.start.cfi); };
         document.getElementById('align-justify').onclick = () => { rendition.themes.default({"p": {"text-align": "justify"}}); rendition.display(rendition.location.start.cfi); };
-        
-        document.getElementById('change-book-btn').onclick = () => {
-            document.getElementById('settings-panel').style.display = 'none';
-            document.getElementById('settings-btn').style.display = 'none';
-            document.getElementById('toc-btn').style.display = 'none';
-            document.getElementById('start-screen').style.display = 'flex';
-            document.getElementById('viewer').innerHTML = '';
-        };
 
         document.getElementById('close-toc').onclick = function() {
             document.getElementById('toc-modal').style.display = 'none';
         };
 
-        // XỬ LÝ CHẠM VÀ VUỐT (Đã bỏ click đúp)
-        function setupTouchEvents() {
-            let touchStartX = 0;
-            let touchEndX = 0;
+        let touchStartX = 0;
+        let touchEndX = 0;
 
-            rendition.on("touchstart", event => {
-                touchStartX = event.changedTouches[0].screenX;
-            });
+        rendition.on("touchstart", event => {
+            touchStartX = event.changedTouches[0].screenX;
+        });
 
-            rendition.on("touchend", event => {
-                touchEndX = event.changedTouches[0].screenX;
-                
-                if (touchStartX - touchEndX > 50) {
-                    rendition.next();
-                } else if (touchEndX - touchStartX > 50) {
-                    rendition.prev();
-                } else {
-                    // Chạm 1 phát bình thường thì ẩn menu setting nếu đang mở
-                    document.getElementById('settings-panel').style.display = 'none';
-                }
-            });
-        }
+        rendition.on("touchend", event => {
+            touchEndX = event.changedTouches[0].screenX;
+            
+            if (touchStartX - touchEndX > 50) {
+                rendition.next();
+            } else if (touchEndX - touchStartX > 50) {
+                rendition.prev();
+            } else {
+                document.getElementById('settings-panel').style.display = 'none';
+            }
+        });
     </script>
 </body>
 </html>
