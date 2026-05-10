@@ -8,7 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
     <style>
         body { margin: 0; font-family: sans-serif; overflow: hidden; transition: background 0.3s; }
-        #viewer { width: 100vw; height: 100vh; }
+        #viewer { width: 100vw; height: 100vh; overflow-y: auto; } /* Bật cuộn dọc */
         
         #toc-btn {
             position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
@@ -23,12 +23,12 @@
             position: absolute; top: 10px; right: 15px; z-index: 100;
             background: rgba(0,0,0,0.7); border: 1px solid #555; color: white;
             border-radius: 50%; width: 35px; height: 35px; font-size: 18px;
-            align-items: center; justify-content: center; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
         }
 
         #settings-panel {
             display: none; position: absolute; top: 55px; right: 15px; z-index: 100;
-            background: #222; color: white; padding: 15px; border-radius: 8px; border: 1px solid #444; width: 220px;
+            background: #222; color: white; padding: 15px; border-radius: 8px; border: 1px solid #444; width: 250px;
         }
         .setting-row { margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;}
         .setting-row button { background: #444; color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer;}
@@ -38,6 +38,8 @@
         #bg-light { background: #ffffff; }
         #bg-dark { background: #121212; }
         #bg-sepia { background: #f4ecd8; }
+
+        #toggle-tap { width: 100%; padding: 8px; margin-top: 5px; background: #5bc0de; color: #000; font-weight: bold; }
 
         #toc-modal {
             display: none; position: absolute; top: 10%; left: 10%; width: 80%; height: 80%;
@@ -79,6 +81,7 @@
                 <button id="align-justify">Đều</button>
             </div>
         </div>
+        <button id="toggle-tap">Chạm 2 lần sang chương: TẮT</button>
     </div>
 
     <div id="toc-modal">
@@ -91,20 +94,21 @@
 
     <script>
         let currentFontSize = 100;
+        let tapEnabled = false; // Mặc định tắt tính năng chạm 2 lần
         
-        // ĐÃ SỬA: Gọi trực tiếp file ngang hàng với index.html
         let book = ePub("quybichichu.epub"); 
         
+        // ĐÃ SỬA: Chuyển sang chế độ cuộn dọc toàn chương
         let rendition = book.renderTo("viewer", {
-            width: "100%", height: "100%", flow: "paginated", manager: "default"
+            width: "100%", height: "100%", flow: "scrolled-doc", manager: "continuous"
         });
 
-        rendition.themes.register("light", { "body": { "background": "#ffffff", "color": "#000000" }});
-        rendition.themes.register("sepia", { "body": { "background": "#f4ecd8", "color": "#5b4636" }});
-        rendition.themes.register("dark", { "body": { "background": "#121212", "color": "#e0e0e0" }});
+        rendition.themes.register("light", { "body": { "background": "#ffffff", "color": "#000000", "padding": "20px 10px" }});
+        rendition.themes.register("sepia", { "body": { "background": "#f4ecd8", "color": "#5b4636", "padding": "20px 10px" }});
+        rendition.themes.register("dark", { "body": { "background": "#121212", "color": "#e0e0e0", "padding": "20px 10px" }});
 
         rendition.themes.default({
-            "p": { "font-size": currentFontSize + "%", "text-align": "left", "line-height": "1.5" }
+            "p": { "font-size": currentFontSize + "%", "text-align": "left", "line-height": "1.6" }
         });
 
         applyTheme('dark');
@@ -161,22 +165,42 @@
             document.getElementById('toc-modal').style.display = 'none';
         };
 
-        let touchStartX = 0;
-        let touchEndX = 0;
+        // Tính năng Tắt/Bật Double Tap
+        document.getElementById('toggle-tap').onclick = function() {
+            tapEnabled = !tapEnabled;
+            this.textContent = tapEnabled ? "Chạm 2 lần sang chương: BẬT" : "Chạm 2 lần sang chương: TẮT";
+            this.style.background = tapEnabled ? "#5cb85c" : "#5bc0de";
+        };
 
-        rendition.on("touchstart", event => {
-            touchStartX = event.changedTouches[0].screenX;
-        });
-
+        // ĐÃ SỬA: Xử lý Double tap và tắt vuốt nhạy
+        let lastTap = 0;
         rendition.on("touchend", event => {
-            touchEndX = event.changedTouches[0].screenX;
-            if (touchStartX - touchEndX > 50) {
-                rendition.next();
-            } else if (touchEndX - touchStartX > 50) {
-                rendition.prev();
+            let currentTime = new Date().getTime();
+            let tapLength = currentTime - lastTap;
+            let touchX = event.changedTouches[0].screenX;
+            let screenWidth = window.innerWidth;
+
+            if (tapLength < 300 && tapLength > 0) { // Nếu chạm đúp
+                if (tapEnabled) {
+                    if (touchX < screenWidth * 0.3) {
+                        rendition.prev(); // Chạm bên trái -> Chương trước
+                    } else if (touchX > screenWidth * 0.7) {
+                        rendition.next(); // Chạm bên phải -> Chương tiếp
+                    } else {
+                        // Chạm ở giữa -> Mở mục lục
+                        document.getElementById('toc-modal').style.display = 'block';
+                        document.getElementById('settings-panel').style.display = 'none';
+                    }
+                } else {
+                    // Nếu tắt tính năng thì chạm đúp ở đâu cũng mở mục lục
+                    document.getElementById('toc-modal').style.display = 'block';
+                    document.getElementById('settings-panel').style.display = 'none';
+                }
             } else {
+                // Chạm 1 phát thì đóng setting
                 document.getElementById('settings-panel').style.display = 'none';
             }
+            lastTap = currentTime;
         });
     </script>
 </body>
