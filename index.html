@@ -7,10 +7,19 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
     <style>
-        body { margin: 0; font-family: sans-serif; background: #121212; color: #e0e0e0; overflow: hidden; transition: background 0.3s; }
+        /* Dùng 100dvh để đo chuẩn chiều cao thực tế của điện thoại */
+        html, body { 
+            margin: 0; padding: 0; font-family: sans-serif; 
+            background: #121212; color: #e0e0e0; 
+            overflow: hidden; transition: background 0.3s; 
+            width: 100vw; height: 100%; height: 100dvh; 
+        }
         
-        /* Khung hiển thị truyện */
-        #viewer { width: 100vw; height: 100vh; overflow-y: auto; }
+        /* CHÉM HẲN 80PX DƯỚI CÙNG ĐỂ NHƯỜNG CHỖ CHO NÚT */
+        #viewer { 
+            width: 100%; 
+            height: calc(100% - 80px); 
+        }
         
         /* Nút Mục lục & Setting trên cùng */
         #toc-btn {
@@ -28,9 +37,9 @@
 
         /* Nút Chuyển chương ở 2 góc dưới (Mờ) */
         .nav-btn {
-            position: fixed; bottom: 20px; z-index: 100;
+            position: fixed; bottom: 15px; z-index: 100;
             background: rgba(0, 0, 0, 0.3); color: white; border: 1px solid #555;
-            width: 45px; height: 45px; border-radius: 50%; display: flex;
+            width: 50px; height: 50px; border-radius: 50%; display: flex;
             align-items: center; justify-content: center; cursor: pointer; font-size: 20px;
         }
         #prev-chap { left: 15px; }
@@ -108,13 +117,11 @@
             width: "100%", height: "100%", flow: "scrolled-doc", manager: "default"
         });
 
-        // Đăng ký 4 Theme màu
-        rendition.themes.register("light", { "body": { "background": "#ffffff", "color": "#000", "padding": "20px 15px 80px" }});
-        rendition.themes.register("sepia", { "body": { "background": "#f4ecd8", "color": "#5b4636", "padding": "20px 15px 80px" }});
-        rendition.themes.register("old", { "body": { "background": "#d2b48c", "color": "#1a1a1a", "padding": "20px 15px 80px" }});
-        rendition.themes.register("dark", { "body": { "background": "#121212", "color": "#e0e0e0", "padding": "20px 15px 80px" }});
-
-        // Padding-bottom: 80px ở trên để khi cuộn xuống cuối chap không bị nút che chữ
+        // Bỏ padding 80px ở đây vì đã cắt thẳng bằng CSS của viewer rồi
+        rendition.themes.register("light", { "body": { "background": "#ffffff", "color": "#000", "padding": "20px 15px" }});
+        rendition.themes.register("sepia", { "body": { "background": "#f4ecd8", "color": "#5b4636", "padding": "20px 15px" }});
+        rendition.themes.register("old", { "body": { "background": "#d2b48c", "color": "#1a1a1a", "padding": "20px 15px" }});
+        rendition.themes.register("dark", { "body": { "background": "#121212", "color": "#e0e0e0", "padding": "20px 15px" }});
         
         rendition.themes.default({ "p": { "font-size": currentFontSize + "%", "line-height": "1.6" } });
         applyTheme('dark');
@@ -133,7 +140,6 @@
         rendition.on('relocated', function(location) {
             let navItem = book.navigation.get(location.start.href);
             document.getElementById('toc-btn').innerHTML = (navItem ? navItem.label : 'Mục lục').substring(0, 20) + '... ▼';
-            document.getElementById('viewer').scrollTop = 0;
         });
 
         document.getElementById('next-chap').onclick = () => rendition.next();
@@ -148,6 +154,7 @@
             if(themeName === 'light') bg = "#ffffff";
             if(themeName === 'sepia') bg = "#f4ecd8";
             if(themeName === 'old') bg = "#d2b48c";
+            // Set màu nền tổng bên ngoài để đồng bộ màu dưới khu vực nút
             document.body.style.backgroundColor = bg;
         }
 
@@ -164,7 +171,6 @@
         document.getElementById('font-increase').onclick = () => { currentFontSize += 10; rendition.themes.fontSize(currentFontSize + "%"); };
         document.getElementById('font-decrease').onclick = () => { currentFontSize -= 10; rendition.themes.fontSize(currentFontSize + "%"); };
 
-        // Đã gỡ bỏ touchstart/touchend để không bị vuốt nhầm
     </script>
 </body>
 </html>
