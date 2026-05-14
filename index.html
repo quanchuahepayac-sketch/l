@@ -7,61 +7,58 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
     <style>
-        body { margin: 0; font-family: sans-serif; background: #121212; color: #e0e0e0; overflow: hidden; }
+        body { margin: 0; font-family: sans-serif; background: #121212; color: #e0e0e0; overflow: hidden; transition: background 0.3s; }
         
         /* Khung hiển thị truyện */
-        #viewer { width: 100vw; height: calc(100vh - 60px); overflow-y: auto; }
+        #viewer { width: 100vw; height: 100vh; overflow-y: auto; }
         
-        /* Nút Mục lục ở giữa trên cùng */
+        /* Nút Mục lục & Setting trên cùng */
         #toc-btn {
             position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.8); color: white;
-            padding: 8px 15px; border-radius: 6px; font-size: 14px;
-            z-index: 100; cursor: pointer; border: 1px solid #444;
-            max-width: 60vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            background: rgba(0, 0, 0, 0.5); color: white; padding: 8px 15px; border-radius: 6px; 
+            font-size: 14px; z-index: 100; cursor: pointer; border: 1px solid #444;
+            max-width: 50vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
 
-        /* Nút Setting góc phải */
         #settings-btn {
-            position: absolute; top: 10px; right: 15px; z-index: 100;
-            background: rgba(0,0,0,0.8); border: 1px solid #444; color: white;
+            position: absolute; top: 10px; right: 10px; z-index: 100;
+            background: rgba(0,0,0,0.5); border: 1px solid #444; color: white;
             border-radius: 50%; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; cursor: pointer;
         }
 
-        /* Bảng điều hướng dưới cùng */
-        #bottom-nav {
-            position: fixed; bottom: 0; width: 100%; height: 60px;
-            background: #1a1a1a; display: flex; justify-content: space-around; align-items: center;
-            border-top: 1px solid #333; z-index: 100;
+        /* Nút Chuyển chương ở 2 góc dưới (Mờ) */
+        .nav-btn {
+            position: fixed; bottom: 20px; z-index: 100;
+            background: rgba(0, 0, 0, 0.3); color: white; border: 1px solid #555;
+            width: 45px; height: 45px; border-radius: 50%; display: flex;
+            align-items: center; justify-content: center; cursor: pointer; font-size: 20px;
         }
-        .nav-arrow { background: #333; color: white; border: 1px solid #444; padding: 8px 25px; border-radius: 5px; cursor: pointer; font-size: 18px; }
-        .nav-arrow:active { background: #555; }
+        #prev-chap { left: 15px; }
+        #next-chap { right: 15px; }
+        .nav-btn:active { background: rgba(0, 0, 0, 0.8); }
 
         /* Bảng Setting */
         #settings-panel {
-            display: none; position: absolute; top: 55px; right: 15px; z-index: 110;
-            background: #222; padding: 15px; border-radius: 8px; border: 1px solid #444; width: 200px;
+            display: none; position: absolute; top: 55px; right: 10px; z-index: 110;
+            background: #222; padding: 15px; border-radius: 8px; border: 1px solid #444; width: 220px;
         }
         .setting-row { margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
         .setting-row button { background: #444; color: white; border: none; padding: 5px 10px; border-radius: 4px; }
-        .color-btn { width: 25px; height: 25px; border-radius: 50%; border: 1px solid #666; cursor: pointer; }
+        
+        /* Cục chọn màu */
+        .color-btn { width: 28px; height: 28px; border-radius: 50%; border: 1px solid #666; cursor: pointer; }
 
-        /* Modal Mục lục (Sửa lỗi dấu X và bấm ra ngoài) */
-        #toc-overlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.7); z-index: 200;
-        }
+        /* Modal Mục lục */
+        #toc-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 200; }
         #toc-modal {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             width: 85%; height: 80%; background: #1a1a1a; border-radius: 10px;
             display: flex; flex-direction: column; overflow: hidden; border: 1px solid #444;
         }
         #toc-header { padding: 15px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; background: #222; }
-        #toc-header h3 { margin: 0; font-size: 18px; }
         #close-toc { background: none; border: none; color: #ff5f56; font-size: 24px; cursor: pointer; }
-        #toc-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1; }
+        #toc-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1; color: #eee;}
         #toc-list li { padding: 15px; border-bottom: 1px solid #222; cursor: pointer; }
-        #toc-list li:active { background: #333; }
     </style>
 </head>
 <body>
@@ -78,10 +75,11 @@
             </div>
         </div>
         <div class="setting-row">
-            <span>Màu</span>
+            <span>Màu nền</span>
             <div style="display: flex; gap: 8px;">
                 <div class="color-btn" id="bg-light" style="background:#fff"></div>
-                <div class="color-btn" id="bg-sepia" style="background:#f4ecd8"></div>
+                <div class="color-btn" id="bg-sepia" style="background:#f4ecd8" title="Vàng nhạt"></div>
+                <div class="color-btn" id="bg-old" style="background:#d2b48c" title="Vàng cổ"></div>
                 <div class="color-btn" id="bg-dark" style="background:#121212"></div>
             </div>
         </div>
@@ -99,71 +97,63 @@
 
     <div id="viewer"></div>
 
-    <div id="bottom-nav">
-        <button class="nav-arrow" id="prev-chap">⬅ Chương trước</button>
-        <button class="nav-arrow" id="next-chap">Chương sau ➡</button>
-    </div>
+    <div class="nav-btn" id="prev-chap">❮</div>
+    <div class="nav-btn" id="next-chap">❯</div>
 
     <script>
         let currentFontSize = 100;
         let book = ePub("quybichichu.epub"); 
         
-        // CHẾ ĐỘ MỚI: Cuộn trong 1 chương, muốn sang chương khác phải chuyển trang
         let rendition = book.renderTo("viewer", {
             width: "100%", height: "100%", flow: "scrolled-doc", manager: "default"
         });
 
-        rendition.themes.register("light", { "body": { "background": "#ffffff", "color": "#000", "padding": "20px 15px" }});
-        rendition.themes.register("sepia", { "body": { "background": "#f4ecd8", "color": "#5b4636", "padding": "20px 15px" }});
-        rendition.themes.register("dark", { "body": { "background": "#121212", "color": "#e0e0e0", "padding": "20px 15px" }});
+        // Đăng ký 4 Theme màu
+        rendition.themes.register("light", { "body": { "background": "#ffffff", "color": "#000", "padding": "20px 15px 80px" }});
+        rendition.themes.register("sepia", { "body": { "background": "#f4ecd8", "color": "#5b4636", "padding": "20px 15px 80px" }});
+        rendition.themes.register("old", { "body": { "background": "#d2b48c", "color": "#1a1a1a", "padding": "20px 15px 80px" }});
+        rendition.themes.register("dark", { "body": { "background": "#121212", "color": "#e0e0e0", "padding": "20px 15px 80px" }});
 
+        // Padding-bottom: 80px ở trên để khi cuộn xuống cuối chap không bị nút che chữ
+        
+        rendition.themes.default({ "p": { "font-size": currentFontSize + "%", "line-height": "1.6" } });
         applyTheme('dark');
         rendition.display();
 
-        // Load mục lục
         book.loaded.navigation.then(function(toc){
             let list = document.getElementById("toc-list");
             toc.forEach(function(chapter) {
                 let li = document.createElement("li");
                 li.textContent = chapter.label;
-                li.onclick = () => {
-                    rendition.display(chapter.href);
-                    document.getElementById('toc-overlay').style.display = 'none';
-                };
+                li.onclick = () => { rendition.display(chapter.href); document.getElementById('toc-overlay').style.display = 'none'; };
                 list.appendChild(li);
             });
         });
 
-        // Cập nhật tên chương hiện tại
         rendition.on('relocated', function(location) {
             let navItem = book.navigation.get(location.start.href);
-            let btnText = navItem ? navItem.label : 'Mục lục';
-            if(btnText.length > 25) btnText = btnText.substring(0, 25) + '...';
-            document.getElementById('toc-btn').innerHTML = btnText + ' ▼';
-            // Mỗi lần sang chương mới, cuộn cái khung viewer lên đầu
+            document.getElementById('toc-btn').innerHTML = (navItem ? navItem.label : 'Mục lục').substring(0, 20) + '... ▼';
             document.getElementById('viewer').scrollTop = 0;
         });
 
-        // Điều hướng chương
         document.getElementById('next-chap').onclick = () => rendition.next();
         document.getElementById('prev-chap').onclick = () => rendition.prev();
-
-        // Xử lý Modal Mục lục
         document.getElementById('toc-btn').onclick = () => document.getElementById('toc-overlay').style.display = 'block';
         document.getElementById('close-toc').onclick = () => document.getElementById('toc-overlay').style.display = 'none';
-        
-        // Bấm ra ngoài vùng trắng của modal để tắt
-        document.getElementById('toc-overlay').onclick = function(e) {
-            if (e.target == this) this.style.display = 'none';
-        };
+        document.getElementById('toc-overlay').onclick = function(e) { if (e.target == this) this.style.display = 'none'; };
 
-        // Các hàm Setting
         function applyTheme(themeName) {
             rendition.themes.select(themeName);
-            document.body.style.backgroundColor = (themeName === 'light') ? "#fff" : (themeName === 'sepia' ? "#f4ecd8" : "#121212");
+            let bg = "#121212";
+            if(themeName === 'light') bg = "#ffffff";
+            if(themeName === 'sepia') bg = "#f4ecd8";
+            if(themeName === 'old') bg = "#d2b48c";
+            document.body.style.backgroundColor = bg;
         }
+
         document.getElementById('bg-light').onclick = () => applyTheme('light');
         document.getElementById('bg-sepia').onclick = () => applyTheme('sepia');
+        document.getElementById('bg-old').onclick = () => applyTheme('old');
         document.getElementById('bg-dark').onclick = () => applyTheme('dark');
         
         document.getElementById('settings-btn').onclick = () => {
@@ -174,19 +164,7 @@
         document.getElementById('font-increase').onclick = () => { currentFontSize += 10; rendition.themes.fontSize(currentFontSize + "%"); };
         document.getElementById('font-decrease').onclick = () => { currentFontSize -= 10; rendition.themes.fontSize(currentFontSize + "%"); };
 
-        // Xử lý vuốt ngang để sang chương (tăng độ mượt, giảm nhạy)
-        let touchStartX = 0;
-        rendition.on("touchstart", e => touchStartX = e.changedTouches[0].screenX);
-        rendition.on("touchend", e => {
-            let touchEndX = e.changedTouches[0].screenX;
-            let diff = touchStartX - touchEndX;
-            if (Math.abs(diff) > 100) { // Phải vuốt trên 100px mới ăn
-                if (diff > 0) rendition.next();
-                else rendition.prev();
-            }
-            document.getElementById('settings-panel').style.display = 'none';
-        });
-
+        // Đã gỡ bỏ touchstart/touchend để không bị vuốt nhầm
     </script>
 </body>
 </html>
